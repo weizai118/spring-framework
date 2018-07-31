@@ -33,6 +33,7 @@ import static org.springframework.web.reactive.function.client.ExchangeFilterFun
 /**
  * @author Arjen Poutsma
  */
+@SuppressWarnings("deprecation")
 public class ExchangeFilterFunctionsTests {
 
 	@Test

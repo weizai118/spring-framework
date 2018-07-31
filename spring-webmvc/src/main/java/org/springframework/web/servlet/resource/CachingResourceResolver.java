@@ -42,8 +42,14 @@ import org.springframework.util.StringUtils;
  */
 public class CachingResourceResolver extends AbstractResourceResolver {
 
+	/**
+	 * The prefix used for resolved resource cache keys.
+	 */
 	public static final String RESOLVED_RESOURCE_CACHE_KEY_PREFIX = "resolvedResource:";
 
+	/**
+	 * The prefix used for resolved URL path cache keys.
+	 */
 	public static final String RESOLVED_URL_PATH_CACHE_KEY_PREFIX = "resolvedUrlPath:";
 
 
@@ -76,18 +82,15 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 	/**
 	 * Configure the supported content codings from the
 	 * {@literal "Accept-Encoding"} header for which to cache resource variations.
-	 *
 	 * <p>The codings configured here are generally expected to match those
 	 * configured on {@link EncodedResourceResolver#setContentCodings(List)}.
-	 *
 	 * <p>By default this property is set to {@literal ["br", "gzip"]} based on
 	 * the value of {@link EncodedResourceResolver#DEFAULT_CODINGS}.
-	 *
 	 * @param codings one or more supported content codings
 	 * @since 5.1
 	 */
 	public void setContentCodings(List<String> codings) {
-		Assert.notEmpty(codings, "At least one content coding expected.");
+		Assert.notEmpty(codings, "At least one content coding expected");
 		this.contentCodings.clear();
 		this.contentCodings.addAll(codings);
 	}
@@ -110,16 +113,13 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 
 		if (resource != null) {
 			if (logger.isTraceEnabled()) {
-				logger.trace("Found match: " + resource);
+				logger.trace("Resource resolved from cache");
 			}
 			return resource;
 		}
 
 		resource = chain.resolveResource(request, requestPath, locations);
 		if (resource != null) {
-			if (logger.isTraceEnabled()) {
-				logger.trace("Putting resolved resource in cache: " + resource);
-			}
 			this.cache.put(key, resource);
 		}
 
@@ -163,16 +163,13 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 
 		if (resolvedUrlPath != null) {
 			if (logger.isTraceEnabled()) {
-				logger.trace("Found match: \"" + resolvedUrlPath + "\"");
+				logger.trace("Path resolved from cache");
 			}
 			return resolvedUrlPath;
 		}
 
 		resolvedUrlPath = chain.resolveUrlPath(resourceUrlPath, locations);
 		if (resolvedUrlPath != null) {
-			if (logger.isTraceEnabled()) {
-				logger.trace("Putting resolved resource URL path in cache: \"" + resolvedUrlPath + "\"");
-			}
 			this.cache.put(key, resolvedUrlPath);
 		}
 

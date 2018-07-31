@@ -63,7 +63,6 @@ import org.springframework.web.method.support.CompositeUriComponentsContributor;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMapping;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
@@ -281,7 +280,7 @@ public class MvcUriComponentsBuilder {
 	 * class AddressController {
 	 *
 	 *   &#064;RequestMapping("/{country}")
-	 *   public HttpEntity<Void> getAddressesForCountry(&#064;PathVariable String country) { ... }
+	 *   public HttpEntity&lt;Void&gt; getAddressesForCountry(&#064;PathVariable String country) { ... }
 	 *
 	 *   &#064;RequestMapping(value="/", method=RequestMethod.POST)
 	 *   public void addAddress(Address address) { ... }
@@ -406,7 +405,7 @@ public class MvcUriComponentsBuilder {
 	 * class PersonController {
 	 *
 	 *   &#064;RequestMapping("/{id}")
-	 *   public HttpEntity<Void> getPerson(&#064;PathVariable String id) { ... }
+	 *   public HttpEntity&lt;Void&gt; getPerson(&#064;PathVariable String id) { ... }
 	 *
 	 * }
 	 * </pre>
@@ -547,8 +546,7 @@ public class MvcUriComponentsBuilder {
 		String path = pathMatcher.combine(typePath, methodPath);
 		builder.path(path);
 
-		UriComponents uriComponents = applyContributors(builder, method, args);
-		return UriComponentsBuilder.newInstance().uriComponents(uriComponents);
+		return applyContributors(builder, method, args);
 	}
 
 	private static UriComponentsBuilder getBaseUrlToUse(@Nullable UriComponentsBuilder baseUrl) {
@@ -583,8 +581,8 @@ public class MvcUriComponentsBuilder {
 		if (ObjectUtils.isEmpty(paths) || StringUtils.isEmpty(paths[0])) {
 			return "/";
 		}
-		if (paths.length > 1 && logger.isWarnEnabled()) {
-			logger.warn("Multiple paths on controller " + controllerType.getName() + ", using first one");
+		if (paths.length > 1 && logger.isTraceEnabled()) {
+			logger.trace("Using first of multiple paths on " + controllerType.getName());
 		}
 		return paths[0];
 	}
@@ -599,8 +597,8 @@ public class MvcUriComponentsBuilder {
 		if (ObjectUtils.isEmpty(paths) || StringUtils.isEmpty(paths[0])) {
 			return "/";
 		}
-		if (paths.length > 1 && logger.isWarnEnabled()) {
-			logger.warn("Multiple paths on method " + method.toGenericString() + ", using first one");
+		if (paths.length > 1 && logger.isTraceEnabled()) {
+			logger.trace("Using first of multiple paths on " + method.toGenericString());
 		}
 		return paths[0];
 	}
@@ -626,12 +624,8 @@ public class MvcUriComponentsBuilder {
 		}
 	}
 
-	private static UriComponents applyContributors(UriComponentsBuilder builder, Method method, Object... args) {
+	private static UriComponentsBuilder applyContributors(UriComponentsBuilder builder, Method method, Object... args) {
 		CompositeUriComponentsContributor contributor = getUriComponentsContributor();
-		if (contributor == null) {
-			logger.trace("Using default CompositeUriComponentsContributor");
-			contributor = defaultUriComponentsContributor;
-		}
 
 		int paramCount = method.getParameterCount();
 		int argCount = args.length;
@@ -647,40 +641,33 @@ public class MvcUriComponentsBuilder {
 			contributor.contributeMethodArgument(param, args[i], builder, uriVars);
 		}
 
-		// We may not have all URI var values, expand only what we have
-		return builder.build().expand(name ->
-				uriVars.getOrDefault(name, UriComponents.UriTemplateVariables.SKIP_VALUE));
+		// This may not be all the URI variables, supply what we have so far..
+		return builder.uriVariables(uriVars);
 	}
 
-	@Nullable
 	private static CompositeUriComponentsContributor getUriComponentsContributor() {
 		WebApplicationContext wac = getWebApplicationContext();
-		if (wac == null) {
-			return null;
-		}
-		try {
-			return wac.getBean(MVC_URI_COMPONENTS_CONTRIBUTOR_BEAN_NAME, CompositeUriComponentsContributor.class);
-		}
-		catch (NoSuchBeanDefinitionException ex) {
-			if (logger.isTraceEnabled()) {
-				logger.trace("No CompositeUriComponentsContributor");
+		if (wac != null) {
+			try {
+				return wac.getBean(MVC_URI_COMPONENTS_CONTRIBUTOR_BEAN_NAME, CompositeUriComponentsContributor.class);
 			}
-			return null;
+			catch (NoSuchBeanDefinitionException ex) {
+				// Ignore
+			}
 		}
+		return defaultUriComponentsContributor;
 	}
 
 	@Nullable
 	private static WebApplicationContext getWebApplicationContext() {
 		RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
 		if (requestAttributes == null) {
-			logger.trace("No request bound to the current thread: not in a DispatcherServlet request?");
 			return null;
 		}
 		HttpServletRequest request = ((ServletRequestAttributes) requestAttributes).getRequest();
 		String attributeName = DispatcherServlet.WEB_APPLICATION_CONTEXT_ATTRIBUTE;
 		WebApplicationContext wac = (WebApplicationContext) request.getAttribute(attributeName);
 		if (wac == null) {
-			logger.trace("No WebApplicationContext found: not in a DispatcherServlet request?");
 			return null;
 		}
 		return wac;
@@ -688,12 +675,24 @@ public class MvcUriComponentsBuilder {
 
 
 
+	/**
+	 * Method invocation information.
+	 */
 	public interface MethodInvocationInfo {
 
+		/**
+		 * Return the controller types.
+		 */
 		Class<?> getControllerType();
 
+		/**
+		 * Return the controller method.
+		 */
 		Method getControllerMethod();
 
+		/**
+		 * Return the argument values.
+		 */
 		Object[] getArgumentValues();
 	}
 
@@ -800,8 +799,7 @@ public class MvcUriComponentsBuilder {
 						proxy = objenesis.newInstance(proxyClass, enhancer.getUseCache());
 					}
 					catch (ObjenesisException ex) {
-						logger.debug("Unable to instantiate controller proxy using Objenesis, " +
-								"falling back to regular construction", ex);
+						logger.debug("Failed to create controller proxy, falling back on default constructor", ex);
 					}
 				}
 
@@ -810,8 +808,8 @@ public class MvcUriComponentsBuilder {
 						proxy = ReflectionUtils.accessibleConstructor(proxyClass).newInstance();
 					}
 					catch (Throwable ex) {
-						throw new IllegalStateException("Unable to instantiate controller proxy using Objenesis, " +
-								"and regular controller instantiation via default constructor fails as well", ex);
+						throw new IllegalStateException(
+								"Failed to create controller proxy or use default constructor", ex);
 					}
 				}
 
@@ -822,6 +820,9 @@ public class MvcUriComponentsBuilder {
 	}
 
 
+	/**
+	 * Builder class to create URLs for method arguments.
+	 */
 	public static class MethodArgumentBuilder {
 
 		private final Class<?> controllerType;
@@ -833,6 +834,7 @@ public class MvcUriComponentsBuilder {
 		private final UriComponentsBuilder baseUrl;
 
 		/**
+		 * Create a new {@link MethodArgumentBuilder} instance.
 		 * @since 4.2
 		 */
 		public MethodArgumentBuilder(Class<?> controllerType, Method method) {
@@ -840,12 +842,13 @@ public class MvcUriComponentsBuilder {
 		}
 
 		/**
+		 * Create a new {@link MethodArgumentBuilder} instance.
 		 * @since 4.2
 		 */
 		public MethodArgumentBuilder(@Nullable UriComponentsBuilder baseUrl, Class<?> controllerType, Method method) {
 			Assert.notNull(controllerType, "'controllerType' is required");
 			Assert.notNull(method, "'method' is required");
-			this.baseUrl = (baseUrl != null ? baseUrl : initBaseUrl());
+			this.baseUrl = baseUrl != null ? baseUrl : UriComponentsBuilder.fromPath(getPath());
 			this.controllerType = controllerType;
 			this.method = method;
 			this.argumentValues = new Object[method.getParameterCount()];
@@ -854,10 +857,10 @@ public class MvcUriComponentsBuilder {
 			}
 		}
 
-		private static UriComponentsBuilder initBaseUrl() {
+		private static String getPath() {
 			UriComponentsBuilder builder = ServletUriComponentsBuilder.fromCurrentServletMapping();
 			String path = builder.build().getPath();
-			return (path != null ? UriComponentsBuilder.fromPath(path) : UriComponentsBuilder.newInstance());
+			return path != null ? path : "";
 		}
 
 		public MethodArgumentBuilder arg(int index, Object value) {
@@ -865,14 +868,24 @@ public class MvcUriComponentsBuilder {
 			return this;
 		}
 
+		/**
+		 * Use this method only if you need to apply strong encoding to expanded
+		 * URI variables by quoting all characters with reserved meaning.
+		 * @since 5.0.8
+		 */
+		public MethodArgumentBuilder encode() {
+			this.baseUrl.encode();
+			return this;
+		}
+
 		public String build() {
-			return fromMethodInternal(this.baseUrl, this.controllerType, this.method,
-					this.argumentValues).build(false).encode().toUriString();
+			return fromMethodInternal(this.baseUrl, this.controllerType, this.method, this.argumentValues)
+					.build().encode().toUriString();
 		}
 
 		public String buildAndExpand(Object... uriVars) {
-			return fromMethodInternal(this.baseUrl, this.controllerType, this.method,
-					this.argumentValues).build(false).expand(uriVars).encode().toString();
+			return fromMethodInternal(this.baseUrl, this.controllerType, this.method, this.argumentValues)
+					.buildAndExpand(uriVars).encode().toString();
 		}
 	}
 

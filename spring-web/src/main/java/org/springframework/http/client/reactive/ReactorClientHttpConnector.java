@@ -19,6 +19,7 @@ package org.springframework.http.client.reactive;
 import java.net.URI;
 import java.util.function.Function;
 
+import io.netty.buffer.ByteBufAllocator;
 import reactor.core.publisher.Mono;
 import reactor.netty.NettyInbound;
 import reactor.netty.NettyOutbound;
@@ -27,8 +28,7 @@ import reactor.netty.http.client.HttpClientRequest;
 import reactor.netty.http.client.HttpClientResponse;
 
 import org.springframework.http.HttpMethod;
-
-import io.netty.buffer.ByteBufAllocator;
+import org.springframework.util.Assert;
 
 /**
  * Reactor-Netty implementation of {@link ClientHttpConnector}.
@@ -57,6 +57,7 @@ public class ReactorClientHttpConnector implements ClientHttpConnector {
 	 * @since 5.1
 	 */
 	public ReactorClientHttpConnector(HttpClient httpClient) {
+		Assert.notNull(httpClient, "HttpClient is required");
 		this.httpClient = httpClient;
 	}
 

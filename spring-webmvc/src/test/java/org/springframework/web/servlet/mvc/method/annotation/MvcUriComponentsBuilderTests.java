@@ -277,7 +277,7 @@ public class MvcUriComponentsBuilderTests {
 		assertThat(uriComponents.toUriString(), endsWith("/something/else"));
 	}
 
- 	@Test
+	@Test
 	public void fromMethodCallOnSubclass() {
 		UriComponents uriComponents = fromMethodCall(on(ExtendedController.class).myMethod(null)).build();
 
@@ -400,6 +400,20 @@ public class MvcUriComponentsBuilderTests {
 		MvcUriComponentsBuilder mvcBuilder = relativeTo(baseUrl);
 		String url = mvcBuilder.withMappingName("PAC#getAddressesForCountry").arg(0, "DE").buildAndExpand(123);
 		assertEquals("http://example.org:9999/base/people/123/addresses/DE", url);
+	}
+
+	@Test // SPR-17027
+	public void fromMappingNameWithEncoding() {
+
+		initWebApplicationContext(WebConfig.class);
+
+		this.request.setServerName("example.org");
+		this.request.setServerPort(9999);
+		this.request.setContextPath("/base");
+
+		String mappingName = "PAC#getAddressesForCountry";
+		String url = fromMappingName(mappingName).arg(0, "DE;FR").encode().buildAndExpand("_+_");
+		assertEquals("/base/people/_%2B_/addresses/DE%3BFR", url);
 	}
 
 	@Test

@@ -646,7 +646,7 @@ public abstract class StringUtils {
 		String prefix = "";
 		if (prefixIndex != -1) {
 			prefix = pathToUse.substring(0, prefixIndex + 1);
-			if (prefix.contains("/")) {
+			if (prefix.contains(FOLDER_SEPARATOR)) {
 				prefix = "";
 			}
 			else {
@@ -659,7 +659,7 @@ public abstract class StringUtils {
 		}
 
 		String[] pathArray = delimitedListToStringArray(pathToUse, FOLDER_SEPARATOR);
-		List<String> pathElements = new LinkedList<>();
+		LinkedList<String> pathElements = new LinkedList<>();
 		int tops = 0;
 
 		for (int i = pathArray.length - 1; i >= 0; i--) {
@@ -686,6 +686,10 @@ public abstract class StringUtils {
 		// Remaining top paths need to be retained.
 		for (int i = 0; i < tops; i++) {
 			pathElements.add(0, TOP_PATH);
+		}
+		// If nothing else left, at least explicitly point to current path.
+		if (pathElements.size() == 1 && "".equals(pathElements.getLast()) && !prefix.endsWith(FOLDER_SEPARATOR)) {
+			pathElements.add(0, CURRENT_PATH);
 		}
 
 		return prefix + collectionToDelimitedString(pathElements, FOLDER_SEPARATOR);
@@ -768,19 +772,24 @@ public abstract class StringUtils {
 	public static Locale parseLocale(String localeValue) {
 		String[] tokens = tokenizeLocaleSource(localeValue);
 		if (tokens.length == 1) {
-			return Locale.forLanguageTag(localeValue);
+			validateLocalePart(localeValue);
+			Locale resolved = Locale.forLanguageTag(localeValue);
+			return (resolved.getLanguage().length() > 0 ? resolved : null);
 		}
 		return parseLocaleTokens(localeValue, tokens);
 	}
 
 	/**
 	 * Parse the given {@code String} representation into a {@link Locale}.
-	 * <p>This is the inverse operation of {@link Locale#toString Locale's toString}.
+	 * <p>For many parsing scenarios, this is an inverse operation of
+	 * {@link Locale#toString Locale's toString}, in a lenient sense.
+	 * This method does not aim for strict {@code Locale} design compliance;
+	 * it is rather specifically tailored for typical Spring parsing needs.
+	 * <p><b>Note: This delegate does not accept the BCP 47 language tag format.
+	 * Please use {@link #parseLocale} for lenient parsing of both formats.</b>
 	 * @param localeString the locale {@code String}: following {@code Locale's}
 	 * {@code toString()} format ("en", "en_UK", etc), also accepting spaces as
 	 * separators (as an alternative to underscores)
-	 * <p>Note: This variant does not accept the BCP 47 language tag format.
-	 * Please use {@link #parseLocale} for lenient parsing of both formats.
 	 * @return a corresponding {@code Locale} instance, or {@code null} if none
 	 * @throws IllegalArgumentException in case of an invalid locale specification
 	 */
@@ -811,13 +820,19 @@ public abstract class StringUtils {
 				variant = trimLeadingCharacter(variant, '_');
 			}
 		}
+
+		if ("".equals(variant) && country.startsWith("#")) {
+			variant = country;
+			country = "";
+		}
+
 		return (language.length() > 0 ? new Locale(language, country, variant) : null);
 	}
 
 	private static void validateLocalePart(String localePart) {
 		for (int i = 0; i < localePart.length(); i++) {
 			char ch = localePart.charAt(i);
-			if (ch != ' ' && ch != '_' && ch != '#' && !Character.isLetterOrDigit(ch)) {
+			if (ch != ' ' && ch != '_' && ch != '-' && ch != '#' && !Character.isLetterOrDigit(ch)) {
 				throw new IllegalArgumentException(
 						"Locale part \"" + localePart + "\" contains invalid characters");
 			}

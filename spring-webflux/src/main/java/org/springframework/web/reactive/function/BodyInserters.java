@@ -329,6 +329,8 @@ public abstract class BodyInserters {
 	/**
 	 * Extension of {@link BodyInserter} that allows for adding form data or
 	 * multipart form data.
+	 *
+	 * @param <T> the value type
 	 */
 	public interface FormInserter<T> extends BodyInserter<MultiValueMap<String, T>, ClientHttpRequest> {
 
@@ -456,8 +458,7 @@ public abstract class BodyInserters {
 					findWriter(context, MULTIPART_DATA_TYPE, MediaType.MULTIPART_FORM_DATA);
 			MultiValueMap<String, HttpEntity<?>> body = this.builder.build();
 			return messageWriter.write(Mono.just(body), MULTIPART_DATA_TYPE,
-					MediaType.MULTIPART_FORM_DATA,
-					outputMessage, context.hints());
+					MediaType.MULTIPART_FORM_DATA, outputMessage, context.hints());
 		}
 	}
 

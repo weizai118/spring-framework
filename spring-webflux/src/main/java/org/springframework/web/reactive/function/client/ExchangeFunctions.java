@@ -22,9 +22,12 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Mono;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.reactive.ClientHttpConnector;
+import org.springframework.http.client.reactive.ClientHttpResponse;
+import org.springframework.http.codec.LoggingCodecSupport;
 import org.springframework.util.Assert;
 
 /**
@@ -69,36 +72,70 @@ public abstract class ExchangeFunctions {
 
 		private final ExchangeStrategies strategies;
 
+		private boolean enableLoggingRequestDetails;
+
 
 		public DefaultExchangeFunction(ClientHttpConnector connector, ExchangeStrategies strategies) {
 			Assert.notNull(connector, "ClientHttpConnector must not be null");
 			Assert.notNull(strategies, "ExchangeStrategies must not be null");
 			this.connector = connector;
 			this.strategies = strategies;
+
+			strategies.messageWriters().stream()
+					.filter(LoggingCodecSupport.class::isInstance)
+					.forEach(reader -> {
+						if (((LoggingCodecSupport) reader).isEnableLoggingRequestDetails()) {
+							this.enableLoggingRequestDetails = true;
+						}
+					});
 		}
 
 
 		@Override
-		public Mono<ClientResponse> exchange(ClientRequest request) {
-			Assert.notNull(request, "ClientRequest must not be null");
-
-			HttpMethod httpMethod = request.method();
-			URI url = request.url();
+		public Mono<ClientResponse> exchange(ClientRequest clientRequest) {
+			Assert.notNull(clientRequest, "ClientRequest must not be null");
+			HttpMethod httpMethod = clientRequest.method();
+			URI url = clientRequest.url();
+			String logPrefix = clientRequest.logPrefix();
 
 			return this.connector
-					.connect(httpMethod, url, httpRequest -> request.writeTo(httpRequest, this.strategies))
-					.doOnSubscribe(subscription -> logger.debug("Subscriber present"))
-					.doOnRequest(n -> logger.debug("Demand signaled"))
-					.doOnCancel(() -> logger.debug("Cancelling request"))
-					.map(response -> {
-						if (logger.isDebugEnabled()) {
-							int code = response.getRawStatusCode();
-							HttpStatus status = HttpStatus.resolve(code);
-							String reason = status != null ? " " + status.getReasonPhrase() : "";
-							logger.debug("Response received, status: " + code + reason);
-						}
-						return new DefaultClientResponse(response, this.strategies);
+					.connect(httpMethod, url, httpRequest -> clientRequest.writeTo(httpRequest, this.strategies))
+					.doOnRequest(n -> logRequest(clientRequest))
+					.doOnCancel(() -> logger.debug(logPrefix + "Cancel signal (to close connection)"))
+					.map(httpResponse -> {
+						logResponse(httpResponse, logPrefix);
+						return new DefaultClientResponse(httpResponse, this.strategies, logPrefix);
 					});
+		}
+
+		private void logRequest(ClientRequest request) {
+			if (logger.isDebugEnabled()) {
+				String message = request.logPrefix() + "HTTP " + request.method() + " " + request.url();
+				if (logger.isTraceEnabled()) {
+					logger.trace(message + ", headers=" + formatHeaders(request.headers()));
+				}
+				else {
+					logger.debug(message);
+				}
+			}
+		}
+
+		private void logResponse(ClientHttpResponse response, String logPrefix) {
+			if (logger.isDebugEnabled()) {
+				int code = response.getRawStatusCode();
+				HttpStatus status = HttpStatus.resolve(code);
+				String message = logPrefix + "Response " + (status != null ? status : code);
+				if (logger.isTraceEnabled()) {
+					logger.trace(message + ", headers=" + formatHeaders(response.getHeaders()));
+				}
+				else {
+					logger.debug(message);
+				}
+			}
+		}
+
+		private String formatHeaders(HttpHeaders headers) {
+			return this.enableLoggingRequestDetails ? headers.toString() : headers.isEmpty() ? "{}" : "{masked}";
 		}
 	}
 

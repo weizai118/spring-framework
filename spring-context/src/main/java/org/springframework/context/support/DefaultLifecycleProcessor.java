@@ -162,7 +162,7 @@ public class DefaultLifecycleProcessor implements LifecycleProcessor, BeanFactor
 	/**
 	 * Start the specified bean as part of the given set of Lifecycle beans,
 	 * making sure that any beans that it depends on are started first.
-	 * @param lifecycleBeans Map with bean name as key and Lifecycle instance as value
+	 * @param lifecycleBeans a Map with bean name as key and Lifecycle instance as value
 	 * @param beanName the name of the bean to start
 	 */
 	private void doStart(Map<String, ? extends Lifecycle> lifecycleBeans, String beanName, boolean autoStartupOnly) {
@@ -214,7 +214,7 @@ public class DefaultLifecycleProcessor implements LifecycleProcessor, BeanFactor
 	/**
 	 * Stop the specified bean as part of the given set of Lifecycle beans,
 	 * making sure that any beans that depends on it are stopped first.
-	 * @param lifecycleBeans Map with bean name as key and Lifecycle instance as value
+	 * @param lifecycleBeans a Map with bean name as key and Lifecycle instance as value
 	 * @param beanName the name of the bean to stop
 	 */
 	private void doStop(Map<String, ? extends Lifecycle> lifecycleBeans, final String beanName,
@@ -349,8 +349,8 @@ public class DefaultLifecycleProcessor implements LifecycleProcessor, BeanFactor
 			if (this.members.isEmpty()) {
 				return;
 			}
-			if (logger.isInfoEnabled()) {
-				logger.info("Starting beans in phase " + this.phase);
+			if (logger.isDebugEnabled()) {
+				logger.debug("Starting beans in phase " + this.phase);
 			}
 			Collections.sort(this.members);
 			for (LifecycleGroupMember member : this.members) {
@@ -364,8 +364,8 @@ public class DefaultLifecycleProcessor implements LifecycleProcessor, BeanFactor
 			if (this.members.isEmpty()) {
 				return;
 			}
-			if (logger.isInfoEnabled()) {
-				logger.info("Stopping beans in phase " + this.phase);
+			if (logger.isDebugEnabled()) {
+				logger.debug("Stopping beans in phase " + this.phase);
 			}
 			this.members.sort(Collections.reverseOrder());
 			CountDownLatch latch = new CountDownLatch(this.smartMemberCount);

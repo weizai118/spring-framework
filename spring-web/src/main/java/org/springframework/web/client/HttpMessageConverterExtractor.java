@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.core.ResolvableType;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.converter.GenericHttpMessageConverter;
@@ -37,6 +38,7 @@ import org.springframework.util.Assert;
  *
  * @author Arjen Poutsma
  * @since 3.0
+ * @param <T> the data type
  * @see RestTemplate
  */
 public class HttpMessageConverterExtractor<T> implements ResponseExtractor<T> {
@@ -94,8 +96,8 @@ public class HttpMessageConverterExtractor<T> implements ResponseExtractor<T> {
 							(GenericHttpMessageConverter<?>) messageConverter;
 					if (genericMessageConverter.canRead(this.responseType, null, contentType)) {
 						if (logger.isDebugEnabled()) {
-							logger.debug("Reading [" + this.responseType + "] as \"" +
-									contentType + "\" using [" + messageConverter + "]");
+							ResolvableType resolvableType = ResolvableType.forType(this.responseType);
+							logger.debug("Reading to [" + resolvableType + "]");
 						}
 						return (T) genericMessageConverter.read(this.responseType, null, responseWrapper);
 					}
@@ -103,8 +105,8 @@ public class HttpMessageConverterExtractor<T> implements ResponseExtractor<T> {
 				if (this.responseClass != null) {
 					if (messageConverter.canRead(this.responseClass, contentType)) {
 						if (logger.isDebugEnabled()) {
-							logger.debug("Reading [" + this.responseClass.getName() + "] as \"" +
-									contentType + "\" using [" + messageConverter + "]");
+							String className = this.responseClass.getName();
+							logger.debug("Reading to [" + className + "] as \"" + contentType + "\"");
 						}
 						return (T) messageConverter.read((Class) this.responseClass, responseWrapper);
 					}
@@ -131,7 +133,7 @@ public class HttpMessageConverterExtractor<T> implements ResponseExtractor<T> {
 		MediaType contentType = response.getHeaders().getContentType();
 		if (contentType == null) {
 			if (logger.isTraceEnabled()) {
-				logger.trace("No Content-Type header found, defaulting to application/octet-stream");
+				logger.trace("No content-type, using 'application/octet-stream'");
 			}
 			contentType = MediaType.APPLICATION_OCTET_STREAM;
 		}

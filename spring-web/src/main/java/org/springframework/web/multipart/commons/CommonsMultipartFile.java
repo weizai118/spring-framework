@@ -170,9 +170,14 @@ public class CommonsMultipartFile implements MultipartFile, Serializable {
 				if (!this.fileItem.isInMemory()) {
 					action = (isAvailable() ? "copied" : "moved");
 				}
-				logger.debug("Multipart file '" + getName() + "' with original filename [" +
-						getOriginalFilename() + "], stored " + getStorageDescription() + ": " +
-						action + " to [" + dest.getAbsolutePath() + "]");
+				String message = "Part '" + getName() + "',  filename '" + getOriginalFilename() + "'";
+				if (logger.isTraceEnabled()) {
+					logger.trace(message + ", stored " + getStorageDescription() + ": " + action +
+							" to [" + dest.getAbsolutePath() + "]");
+				}
+				else {
+					logger.debug(message + ": " + action + " to [" + dest.getAbsolutePath() + "]");
+				}
 			}
 		}
 		catch (FileUploadException ex) {

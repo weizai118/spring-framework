@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ import org.springframework.web.server.session.WebSessionManager;
  * @since 5.0
  * @see HttpWebHandlerAdapter
  */
-public class WebHttpHandlerBuilder {
+public final class WebHttpHandlerBuilder {
 
 	/** Well-known name for the target WebHandler in the bean factory. */
 	public static final String WEB_HANDLER_BEAN_NAME = "webHandler";
@@ -79,6 +79,9 @@ public class WebHttpHandlerBuilder {
 
 	private final WebHandler webHandler;
 
+	@Nullable
+	private final ApplicationContext applicationContext;
+
 	private final List<WebFilter> filters = new ArrayList<>();
 
 	private final List<WebExceptionHandler> exceptionHandlers = new ArrayList<>();
@@ -92,22 +95,11 @@ public class WebHttpHandlerBuilder {
 	@Nullable
 	private LocaleContextResolver localeContextResolver;
 
-	@Nullable
-	private ApplicationContext applicationContext;
-
-
-	/**
-	 * Private constructor.
-	 */
-	private WebHttpHandlerBuilder(WebHandler webHandler) {
-		Assert.notNull(webHandler, "WebHandler must not be null");
-		this.webHandler = webHandler;
-	}
 
 	/**
 	 * Private constructor to use when initialized from an ApplicationContext.
 	 */
-	private WebHttpHandlerBuilder(WebHandler webHandler, ApplicationContext applicationContext) {
+	private WebHttpHandlerBuilder(WebHandler webHandler, @Nullable ApplicationContext applicationContext) {
 		Assert.notNull(webHandler, "WebHandler must not be null");
 		this.webHandler = webHandler;
 		this.applicationContext = applicationContext;
@@ -118,6 +110,7 @@ public class WebHttpHandlerBuilder {
 	 */
 	private WebHttpHandlerBuilder(WebHttpHandlerBuilder other) {
 		this.webHandler = other.webHandler;
+		this.applicationContext = other.applicationContext;
 		this.filters.addAll(other.filters);
 		this.exceptionHandlers.addAll(other.exceptionHandlers);
 		this.sessionManager = other.sessionManager;
@@ -132,7 +125,7 @@ public class WebHttpHandlerBuilder {
 	 * @return the prepared builder
 	 */
 	public static WebHttpHandlerBuilder webHandler(WebHandler webHandler) {
-		return new WebHttpHandlerBuilder(webHandler);
+		return new WebHttpHandlerBuilder(webHandler, null);
 	}
 
 	/**
@@ -156,7 +149,6 @@ public class WebHttpHandlerBuilder {
 	 * @return the prepared builder
 	 */
 	public static WebHttpHandlerBuilder applicationContext(ApplicationContext context) {
-
 		WebHttpHandlerBuilder builder = new WebHttpHandlerBuilder(
 				context.getBean(WEB_HANDLER_BEAN_NAME, WebHandler.class), context);
 
@@ -248,13 +240,33 @@ public class WebHttpHandlerBuilder {
 	}
 
 	/**
-	 * Configure the {@link ServerCodecConfigurer} to set on the
-	 * {@link ServerWebExchange WebServerExchange}.
+	 * Whether a {@code WebSessionManager} is configured or not, either
+	 * detected from an {@code ApplicationContext} or explicitly configured via
+	 * {@link #sessionManager(WebSessionManager)}.
+	 * @since 5.0.9
+	 */
+	public boolean hasSessionManager() {
+		return this.sessionManager != null;
+	}
+
+	/**
+	 * Configure the {@link ServerCodecConfigurer} to set on the {@code WebServerExchange}.
 	 * @param codecConfigurer the codec configurer
 	 */
 	public WebHttpHandlerBuilder codecConfigurer(ServerCodecConfigurer codecConfigurer) {
 		this.codecConfigurer = codecConfigurer;
 		return this;
+	}
+
+
+	/**
+	 * Whether a {@code ServerCodecConfigurer} is configured or not, either
+	 * detected from an {@code ApplicationContext} or explicitly configured via
+	 * {@link #codecConfigurer(ServerCodecConfigurer)}.
+	 * @since 5.0.9
+	 */
+	public boolean hasCodecConfigurer() {
+		return this.codecConfigurer != null;
 	}
 
 	/**
@@ -267,15 +279,22 @@ public class WebHttpHandlerBuilder {
 		return this;
 	}
 
+	/**
+	 * Whether a {@code LocaleContextResolver} is configured or not, either
+	 * detected from an {@code ApplicationContext} or explicitly configured via
+	 * {@link #localeContextResolver(LocaleContextResolver)}.
+	 * @since 5.0.9
+	 */
+	public boolean hasLocaleContextResolver() {
+		return this.localeContextResolver != null;
+	}
+
 
 	/**
 	 * Build the {@link HttpHandler}.
 	 */
 	public HttpHandler build() {
-
-		WebHandler decorated;
-
-		decorated = new FilteringWebHandler(this.webHandler, this.filters);
+		WebHandler decorated = new FilteringWebHandler(this.webHandler, this.filters);
 		decorated = new ExceptionHandlingWebHandler(decorated,  this.exceptionHandlers);
 
 		HttpWebHandlerAdapter adapted = new HttpWebHandlerAdapter(decorated);
@@ -291,6 +310,7 @@ public class WebHttpHandlerBuilder {
 		if (this.applicationContext != null) {
 			adapted.setApplicationContext(this.applicationContext);
 		}
+		adapted.afterPropertiesSet();
 
 		return adapted;
 	}

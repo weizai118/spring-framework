@@ -23,6 +23,7 @@ import reactor.netty.NettyInbound;
 import reactor.netty.NettyOutbound;
 
 import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MonoToListenableFutureAdapter;
 import org.springframework.messaging.tcp.TcpConnection;
 import org.springframework.util.concurrent.ListenableFuture;
 
@@ -31,6 +32,7 @@ import org.springframework.util.concurrent.ListenableFuture;
  *
  * @author Rossen Stoyanchev
  * @since 5.0
+ * @param <P> the type of payload for outbound messages
  */
 public class ReactorNettyTcpConnection<P> implements TcpConnection<P> {
 

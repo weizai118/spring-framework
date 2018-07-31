@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ import org.springframework.web.socket.sockjs.support.SockJsHttpRequestHandler;
  * <p>Registers a Spring MVC {@link org.springframework.web.servlet.HandlerMapping}
  * with order 1 to map HTTP WebSocket handshake requests from STOMP/WebSocket clients.
  *
- * <p>Registers the following {@link org.springframework.messaging.MessageChannel}s:
+ * <p>Registers the following {@link org.springframework.messaging.MessageChannel org.springframework.messaging.MessageChannels}:
  * <ul>
  * <li>"clientInboundChannel" for receiving messages from clients (e.g. WebSocket clients)
  * <li>"clientOutboundChannel" for sending messages to clients (e.g. WebSocket clients)
@@ -111,11 +111,15 @@ class MessageBrokerBeanDefinitionParser implements BeanDefinitionParser {
 
 	private static final int DEFAULT_MAPPING_ORDER = 1;
 
-	private static final boolean jackson2Present = ClassUtils.isPresent(
-			"com.fasterxml.jackson.databind.ObjectMapper", MessageBrokerBeanDefinitionParser.class.getClassLoader());
+	private static final boolean jackson2Present;
 
-	private static final boolean javaxValidationPresent =
-			ClassUtils.isPresent("javax.validation.Validator", MessageBrokerBeanDefinitionParser.class.getClassLoader());
+	private static final boolean javaxValidationPresent;
+
+	static {
+		ClassLoader classLoader = MessageBrokerBeanDefinitionParser.class.getClassLoader();
+		jackson2Present = ClassUtils.isPresent("com.fasterxml.jackson.databind.ObjectMapper", classLoader);
+		javaxValidationPresent = ClassUtils.isPresent("javax.validation.Validator", classLoader);
+	}
 
 
 	@Override
@@ -163,7 +167,7 @@ class MessageBrokerBeanDefinitionParser implements BeanDefinitionParser {
 			}
 		}
 
-		Map<String, Object> scopeMap = Collections.<String, Object>singletonMap("websocket", new SimpSessionScope());
+		Map<String, Object> scopeMap = Collections.singletonMap("websocket", new SimpSessionScope());
 		RootBeanDefinition scopeConfigurer = new RootBeanDefinition(CustomScopeConfigurer.class);
 		scopeConfigurer.getPropertyValues().add("scopes", scopeMap);
 		registerBeanDefByName("webSocketScopeConfigurer", scopeConfigurer, context, source);
@@ -444,6 +448,12 @@ class MessageBrokerBeanDefinitionParser implements BeanDefinitionParser {
 			// Should not happen
 			throw new IllegalStateException("Neither <simple-broker> nor <stomp-broker-relay> elements found.");
 		}
+
+		if (brokerElement.hasAttribute("preserve-publish-order")) {
+			String preservePublishOrder = brokerElement.getAttribute("preserve-publish-order");
+			brokerDef.getPropertyValues().add("preservePublishOrder", preservePublishOrder);
+		}
+
 		registerBeanDef(brokerDef, context, source);
 		return brokerDef;
 	}
@@ -663,7 +673,7 @@ class MessageBrokerBeanDefinitionParser implements BeanDefinitionParser {
 		context.registerComponent(new BeanComponentDefinition(beanDef, name));
 	}
 
-	private static class DecoratingFactoryBean implements FactoryBean<WebSocketHandler> {
+	private static final class DecoratingFactoryBean implements FactoryBean<WebSocketHandler> {
 
 		private final WebSocketHandler handler;
 

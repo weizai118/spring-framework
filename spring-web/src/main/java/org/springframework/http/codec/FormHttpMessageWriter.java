@@ -22,7 +22,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +29,7 @@ import org.reactivestreams.Publisher;
 import reactor.core.publisher.Mono;
 
 import org.springframework.core.ResolvableType;
+import org.springframework.core.codec.Hints;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.MediaType;
 import org.springframework.http.ReactiveHttpOutputMessage;
@@ -57,8 +57,12 @@ import org.springframework.util.MultiValueMap;
  * @since 5.0
  * @see org.springframework.http.codec.multipart.MultipartHttpMessageWriter
  */
-public class FormHttpMessageWriter implements HttpMessageWriter<MultiValueMap<String, String>> {
+public class FormHttpMessageWriter extends LoggingCodecSupport
+		implements HttpMessageWriter<MultiValueMap<String, String>> {
 
+	/**
+	 * The default charset used by the writer.
+	 */
 	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
 	private static final MediaType DEFAULT_FORM_DATA_MEDIA_TYPE =
@@ -127,12 +131,17 @@ public class FormHttpMessageWriter implements HttpMessageWriter<MultiValueMap<St
 		Assert.notNull(charset, "No charset"); // should never occur
 
 		return Mono.from(inputStream).flatMap(form -> {
-					String value = serializeForm(form, charset);
-					ByteBuffer byteBuffer = charset.encode(value);
-					DataBuffer buffer = message.bufferFactory().wrap(byteBuffer);
-					message.getHeaders().setContentLength(byteBuffer.remaining());
-					return message.writeWith(Mono.just(buffer));
-				});
+			if (logger.isDebugEnabled()) {
+				String details = isEnableLoggingRequestDetails() ?
+						form.toString() : "form fields " + form.keySet() + " (content masked)";
+				logger.debug(Hints.getLogPrefix(hints) + "Writing " + details);
+			}
+			String value = serializeForm(form, charset);
+			ByteBuffer byteBuffer = charset.encode(value);
+			DataBuffer buffer = message.bufferFactory().wrap(byteBuffer);
+			message.getHeaders().setContentLength(byteBuffer.remaining());
+			return message.writeWith(Mono.just(buffer));
+		});
 	}
 
 	private MediaType getMediaType(@Nullable MediaType mediaType) {

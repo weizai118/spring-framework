@@ -45,6 +45,7 @@ import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
 import org.springframework.core.ResolvableType;
+import org.springframework.core.codec.Hints;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -53,6 +54,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ReactiveHttpInputMessage;
 import org.springframework.http.codec.HttpMessageReader;
+import org.springframework.http.codec.LoggingCodecSupport;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
@@ -70,7 +72,7 @@ import org.springframework.util.Assert;
  * @see <a href="https://github.com/synchronoss/nio-multipart">Synchronoss NIO Multipart</a>
  * @see MultipartHttpMessageReader
  */
-public class SynchronossPartHttpMessageReader implements HttpMessageReader<Part> {
+public class SynchronossPartHttpMessageReader extends LoggingCodecSupport implements HttpMessageReader<Part> {
 
 	private final DataBufferFactory bufferFactory = new DefaultDataBufferFactory();
 
@@ -84,14 +86,21 @@ public class SynchronossPartHttpMessageReader implements HttpMessageReader<Part>
 
 	@Override
 	public boolean canRead(ResolvableType elementType, @Nullable MediaType mediaType) {
-		return Part.class.equals(elementType.resolve(Object.class)) &&
+		return Part.class.equals(elementType.toClass()) &&
 				(mediaType == null || MediaType.MULTIPART_FORM_DATA.isCompatibleWith(mediaType));
 	}
 
 
 	@Override
 	public Flux<Part> read(ResolvableType elementType, ReactiveHttpInputMessage message, Map<String, Object> hints) {
-		return Flux.create(new SynchronossPartGenerator(message, this.bufferFactory, this.streamStorageFactory));
+		return Flux.create(new SynchronossPartGenerator(message, this.bufferFactory, this.streamStorageFactory))
+				.doOnNext(part -> {
+					if (logger.isDebugEnabled() && !Hints.isLoggingSuppressed(hints)) {
+						String details = isEnableLoggingRequestDetails() ?
+								part.toString() : "parts '" + part.name() + "' (content masked)";
+						logger.debug(Hints.getLogPrefix(hints) + "Parsed " + details);
+					}
+				});
 	}
 
 
@@ -110,7 +119,7 @@ public class SynchronossPartHttpMessageReader implements HttpMessageReader<Part>
 		private final ReactiveHttpInputMessage inputMessage;
 
 		private final DataBufferFactory bufferFactory;
-		
+
 		private final PartBodyStreamStorageFactory streamStorageFactory;
 
 		SynchronossPartGenerator(ReactiveHttpInputMessage inputMessage, DataBufferFactory bufferFactory,
@@ -134,7 +143,7 @@ public class SynchronossPartHttpMessageReader implements HttpMessageReader<Part>
 			NioMultipartParserListener listener = new FluxSinkAdapterListener(emitter, this.bufferFactory, context);
 			NioMultipartParser parser = Multipart
 					.multipart(context)
-					.usePartBodyStreamStorageFactory(streamStorageFactory)
+					.usePartBodyStreamStorageFactory(this.streamStorageFactory)
 					.forNIO(listener);
 
 			this.inputMessage.getBody().subscribe(buffer -> {
@@ -263,6 +272,11 @@ public class SynchronossPartHttpMessageReader implements HttpMessageReader<Part>
 		DataBufferFactory getBufferFactory() {
 			return this.bufferFactory;
 		}
+
+		@Override
+		public String toString() {
+			return "Part '" + this.name + "', headers=" + this.headers;
+		}
 	}
 
 
@@ -342,6 +356,11 @@ public class SynchronossPartHttpMessageReader implements HttpMessageReader<Part>
 			}
 			return Mono.empty();
 		}
+
+		@Override
+		public String toString() {
+			return "Part '" + name() + "', filename='" + this.filename + "'";
+		}
 	}
 
 
@@ -370,6 +389,11 @@ public class SynchronossPartHttpMessageReader implements HttpMessageReader<Part>
 		private Charset getCharset() {
 			String name = MultipartUtils.getCharEncoding(headers());
 			return (name != null ? Charset.forName(name) : StandardCharsets.UTF_8);
+		}
+
+		@Override
+		public String toString() {
+			return "Part '" + name() + "=" + this.content + "'";
 		}
 	}
 

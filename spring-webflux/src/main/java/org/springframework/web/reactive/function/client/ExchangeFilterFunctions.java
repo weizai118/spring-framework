@@ -44,7 +44,9 @@ public abstract class ExchangeFilterFunctions {
 	/**
 	 * Name of the {@linkplain ClientRequest#attributes() request attribute} that
 	 * contains the {@link Credentials} used by {@link #basicAuthentication()}.
+	 * @deprecated in favor of {@link HttpHeaders#setBasicAuth(String, String)}
 	 */
+	@Deprecated
 	public static final String BASIC_AUTHENTICATION_CREDENTIALS_ATTRIBUTE =
 			ExchangeFilterFunctions.class.getName() + ".basicAuthenticationCredentials";
 
@@ -59,7 +61,9 @@ public abstract class ExchangeFilterFunctions {
 	 * @return the filter for basic authentication
 	 * @throws IllegalArgumentException if either {@code user} or
 	 * {@code password} contain characters that cannot be encoded to ISO-8859-1.
+	 * @deprecated in favor of {@link HttpHeaders#setBasicAuth(String, String)}
 	 */
+	@Deprecated
 	public static ExchangeFilterFunction basicAuthentication(String user, String password) {
 		Assert.notNull(user, "'user' must not be null");
 		Assert.notNull(password, "'password' must not be null");
@@ -75,7 +79,9 @@ public abstract class ExchangeFilterFunctions {
 	 * @return the filter for basic authentication
 	 * @see #BASIC_AUTHENTICATION_CREDENTIALS_ATTRIBUTE
 	 * @see Credentials#basicAuthenticationCredentials(String, String)
+	 * @deprecated as of Spring 5.1, with no direct replacement
 	 */
+	@Deprecated
 	public static ExchangeFilterFunction basicAuthentication() {
 		return basicAuthenticationInternal(request ->
 				request.attribute(BASIC_AUTHENTICATION_CREDENTIALS_ATTRIBUTE)
@@ -92,10 +98,8 @@ public abstract class ExchangeFilterFunctions {
 	}
 
 	private static void checkIllegalCharacters(String username, String password) {
-
 		// Basic authentication only supports ISO 8859-1, see
 		// https://stackoverflow.com/questions/702629/utf-8-characters-mangled-in-http-basic-auth-username#703341
-
 		CharsetEncoder encoder = StandardCharsets.ISO_8859_1.newEncoder();
 		if (!encoder.canEncode(username) || !encoder.canEncode(password)) {
 			throw new IllegalArgumentException(
@@ -113,7 +117,6 @@ public abstract class ExchangeFilterFunctions {
 		}).build();
 	}
 
-
 	/**
 	 * Return a filter that generates an error signal when the given
 	 * {@link HttpStatus} predicate matches.
@@ -128,10 +131,8 @@ public abstract class ExchangeFilterFunctions {
 		Assert.notNull(exceptionFunction, "Function must not be null");
 
 		return ExchangeFilterFunction.ofResponseProcessor(
-				response -> statusPredicate.test(response.statusCode()) ?
-						Mono.error(exceptionFunction.apply(response)) :
-						Mono.just(response)
-		);
+				response -> (statusPredicate.test(response.statusCode()) ?
+						Mono.error(exceptionFunction.apply(response)) : Mono.just(response)));
 	}
 
 
@@ -139,13 +140,14 @@ public abstract class ExchangeFilterFunctions {
 	 * Stores user and password for HTTP basic authentication.
 	 * @see #basicAuthentication()
 	 * @see #basicAuthenticationCredentials(String, String)
+	 * @deprecated as of Spring 5.1, with no direct replacement
 	 */
+	@Deprecated
 	public static final class Credentials {
 
 		private final String username;
 
 		private final String password;
-
 
 		/**
 		 * Create a new {@code Credentials} instance with the given username and password.
@@ -158,7 +160,6 @@ public abstract class ExchangeFilterFunctions {
 			this.username = username;
 			this.password = password;
 		}
-
 
 		/**
 		 * Return a {@literal Consumer} that stores the given user and password
@@ -174,21 +175,19 @@ public abstract class ExchangeFilterFunctions {
 		public static Consumer<Map<String, Object>> basicAuthenticationCredentials(String user, String password) {
 			Credentials credentials = new Credentials(user, password);
 			checkIllegalCharacters(user, password);
-			return map -> map.put(BASIC_AUTHENTICATION_CREDENTIALS_ATTRIBUTE, credentials);
+			return (map -> map.put(BASIC_AUTHENTICATION_CREDENTIALS_ATTRIBUTE, credentials));
 		}
 
-
 		@Override
-		public boolean equals(Object o) {
-			if (this == o) {
+		public boolean equals(Object other) {
+			if (this == other) {
 				return true;
 			}
-			if (o instanceof Credentials) {
-				Credentials other = (Credentials) o;
-				return this.username.equals(other.username) &&
-						this.password.equals(other.password);
+			if (!(other instanceof Credentials)) {
+				return false;
 			}
-			return false;
+			Credentials otherCred = (Credentials) other;
+			return (this.username.equals(otherCred.username) && this.password.equals(otherCred.password));
 		}
 
 		@Override

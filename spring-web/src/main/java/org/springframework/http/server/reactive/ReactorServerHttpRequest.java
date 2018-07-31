@@ -174,4 +174,11 @@ class ReactorServerHttpRequest extends AbstractServerHttpRequest {
 		return (T) this.request;
 	}
 
+	@Override
+	@Nullable
+	protected String initId() {
+		return this.request instanceof Connection ?
+				((Connection) this.request).channel().id().asShortText() : null;
+	}
+
 }

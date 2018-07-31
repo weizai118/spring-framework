@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.logging.Log;
+
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -56,8 +58,11 @@ import org.springframework.messaging.handler.invocation.AbstractMethodMessageHan
 import org.springframework.messaging.handler.invocation.CompletableFutureReturnValueHandler;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolver;
 import org.springframework.messaging.handler.invocation.HandlerMethodReturnValueHandler;
+import org.springframework.messaging.handler.invocation.HandlerMethodReturnValueHandlerComposite;
 import org.springframework.messaging.handler.invocation.ListenableFutureReturnValueHandler;
+import org.springframework.messaging.handler.invocation.ReactiveReturnValueHandler;
 import org.springframework.messaging.simp.SimpAttributesContextHolder;
+import org.springframework.messaging.simp.SimpLogging;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageMappingInfo;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
@@ -231,7 +236,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 	}
 
 	/**
-	 * Set the Validator instance used for validating @Payload arguments
+	 * Set the Validator instance used for validating {@code @Payload} arguments.
 	 * @see org.springframework.validation.annotation.Validated
 	 * @see PayloadArgumentResolver
 	 */
@@ -246,7 +251,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 
 	/**
 	 * Configure a {@link MessageHeaderInitializer} to pass on to
-	 * {@link org.springframework.messaging.handler.invocation.HandlerMethodReturnValueHandler}s
+	 * {@link org.springframework.messaging.handler.invocation.HandlerMethodReturnValueHandler org.springframework.messaging.handler.invocation.HandlerMethodReturnValueHandlers}
 	 * that send messages from controller return values.
 	 * <p>By default, this property is not set.
 	 */
@@ -333,6 +338,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 
 		handlers.add(new ListenableFutureReturnValueHandler());
 		handlers.add(new CompletableFutureReturnValueHandler());
+		handlers.add(new ReactiveReturnValueHandler());
 
 		// Annotation-based return value types
 
@@ -355,6 +361,16 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 		handlers.add(sendToHandler);
 
 		return handlers;
+	}
+
+	@Override
+	protected Log getReturnValueHandlerLogger() {
+		return SimpLogging.forLog(HandlerMethodReturnValueHandlerComposite.defaultLogger);
+	}
+
+	@Override
+	protected Log getHandlerMethodLogger() {
+		return SimpLogging.forLog(HandlerMethod.defaultLogger);
 	}
 
 
